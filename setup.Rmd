@@ -1,0 +1,60 @@
+---
+title: "R Setup"
+---
+```{r setup, include=FALSE}
+mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs'
+.libPaths(mylib)
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+
+##tidyverse
+install.packages("tidyverse")
+library(tidyverse)
+
+##phyloseq
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("phyloseq")
+library(phyloseq)
+
+##microviz
+# if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+# BiocManager::install(c("phyloseq", "microbiome", "ComplexHeatmap"), update = FALSE)
+# install.packages(
+#   "microViz",
+#   repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
+# )
+# library(microViz)
+
+##other packages
+install.packages(rlang)
+library(rlang)
+install.packages(openxlsx)
+library(openxlsx)
+install.packages(rstatix)
+library(rstatix)
+install.packages(ggpubr)
+library(ggpubr)
+install.packages(plyr)
+library(plyr)
+install.packages(ggpmisc)
+library(ggpmisc)
+```
+
+```{r}
+#load required functions from fconstancias: https://zenodo.org/records/6473394
+setwd(myfunctions)
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
+# source("./functions.R")
+
+#function for getting metadata file
+sample.data.frame <- function(ps) {
+  return(as(phyloseq::sample_data(ps), "data.frame"))}
+```
