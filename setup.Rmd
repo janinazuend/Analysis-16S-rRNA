@@ -1,13 +1,14 @@
 ---
 title: "R Setup"
 ---
+1. Get you R ready! Start with installing all required packages (Don't forget to cite microViz package in publications):
+
 ```{r setup, include=FALSE}
-mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs'
+mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs' #replace with the directory of library
 .libPaths(mylib)
 
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(echo = TRUE, warning = FALSE, message = FALSE)
-
 
 ##tidyverse
 install.packages("tidyverse")
@@ -20,13 +21,13 @@ BiocManager::install("phyloseq")
 library(phyloseq)
 
 ##microviz
-# if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-# BiocManager::install(c("phyloseq", "microbiome", "ComplexHeatmap"), update = FALSE)
-# install.packages(
-#   "microViz",
-#   repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
-# )
-# library(microViz)
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install(c("phyloseq", "microbiome", "ComplexHeatmap"), update = FALSE)
+install.packages(
+  "microViz",
+  repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
+)
+library(microViz)
 
 ##other packages
 install.packages(rlang)
@@ -43,16 +44,17 @@ install.packages(ggpmisc)
 library(ggpmisc)
 ```
 
+2. Load additional R functions from zenodo fconstancias: https://zenodo.org/records/6473394 (Note: don't forget to cite)
 ```{r}
-#load required functions from fconstancias: https://zenodo.org/records/6473394
-setwd(myfunctions)
+#download the functions and store them locally on your computer=> from fconstancias: https://zenodo.org/records/6473394 
+#load them into R => replace directory with the directory on your computer
 source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
 source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
 source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
 source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
 source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
 source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
-# source("./functions.R")
+
 
 #function for getting metadata file
 sample.data.frame <- function(ps) {
