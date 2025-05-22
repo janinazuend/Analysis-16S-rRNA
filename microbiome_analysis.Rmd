@@ -185,20 +185,23 @@ ggsave(filename = "Barplots_family_Fibregum_Run_1.png",
 ### Stop here
 ## Distance plots of pairwise comparisons
 ```{r}
-phyloseq_rare %>%
+ps_rare %>%
   phyloseq::distance(method = "bray") -> bc
 
-phyloseq_rare %>%
+ps_rare %>%
   ordinate(method = "PCoA",
            distance = bc) -> ord
 ```
 
 ```{r}
-setwd(mydir)
-phyloseq_rare %>% 
+
+ps_rare %>% 
   phyloseq_distance_boxplot(p = ., # phyloseq object
                             dist = bc, # distance matrix
-                            d = "condition") -> out # column in metadata for comparaisons
+                            d = "Time") -> out # column in metadata for comparaisons
+
+####janina here
+
 #get the distances
 setNames(as.data.frame(out$matrix),c("sample_name", "sample_name_comp", "value", "condition_comp", "comparison")) -> distances
 

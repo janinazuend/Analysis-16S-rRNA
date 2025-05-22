@@ -44,16 +44,16 @@ install.packages(ggpmisc)
 library(ggpmisc)
 ```
 
-2. Load additional R functions from zenodo fconstancias: https://zenodo.org/records/6473394 (Note: don't forget to cite)
+2. Load additional R functions from zenodo fconstancias: https://zenodo.org/records/6473394 (Note: don't forget to cite) - only if needed
 ```{r}
 #download the functions and store them locally on your computer=> from fconstancias: https://zenodo.org/records/6473394 
 #load them into R => replace directory with the directory on your computer
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
 
 
 #function for getting metadata file
