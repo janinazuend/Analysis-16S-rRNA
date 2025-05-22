@@ -1,0 +1,532 @@
+---
+title: "Microbiome analysis using phyloseq"
+---
+This R Markdown contains a starting collection of basic microbiome analysis using pyhloseq (https://github.com/joey711/phyloseq). A tutorial can be accessed here: https://joey711.github.io/phyloseq/import-data.html
+
+###1. Set up - install packages and load functions
+If you have not yet installed thi packages => first install (usig https://github.com/janinazuend/Analysis-16S-rRNA/blob/main/setup.Rmd)
+```{r setup, include=FALSE}
+mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs'
+.libPaths(mylib)
+
+# devtools::install_github("tidyverse/tidyverse") 
+
+library(phyloseq)
+library(tidyverse)
+library(openxlsx)
+library(microViz)
+library(rstatix)
+library(ggpubr)
+library(plyr)
+library(ggpmisc)
+library(cowplot)
+library(vegan)
+
+
+```
+
+```{r}
+#download the functions and store them locally on your computer=> from fconstancias: https://zenodo.org/records/6473394 
+#load them into R => replace directory with the directory on your computer
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
+source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
+
+#function for getting metadata file
+sample.data.frame <- function(ps) {
+  return(as(phyloseq::sample_data(ps), "data.frame"))}
+
+#function to name ggplot facets
+facet_labeller <- function(variable,value){
+  return(names[value])
+}
+```
+
+### 1. Load/create a phyloseq object 
+For different methods to create phyloseq see: https://joey711.github.io/phyloseq/import-data.html
+
+```{r}
+ps<-readRDS("C:/Users/zuendj/Desktop/03_data R/fibreGum/phyloseq_FibreGum_Run1.rds")
+```
+
+### 2. Check the Library size & Rarefaction (Normalization => for Diversity analysis !!!)
+```{r}
+# Extract the OTU (or ASV) table as a matrix
+otu_mat <- as(otu_table(ps), "matrix")
+
+# If taxa are rows, transpose to have samples in rows
+if(taxa_are_rows(ps)) {
+  otu_mat <- t(otu_mat)
+}
+
+# Calculate library size per sample (sum of counts per sample)
+library_sizes <- setNames(as.data.frame(rowSums(otu_mat)), c("Libsize"))%>%
+  arrange(Libsize) ##order
+```
+```{r}
+#plot the read depth
+vegan::rarecurve(otu_mat, step=10000, cex=0.5)
+```
+#### Rarefying the reads
+```{r}
+ps %>%
+  rarefy_even_depth(rngseed = 123,
+                    sample.size = 1095326
+                    ) -> ps_rare
+```
+##  2. Alpha diversity
+```{r}
+#alpha diversity
+ps_rare%>%
+  phyloseq_alphas(phylo = F) -> alphas
+```
+
+```{r}
+alphas%>%
+  mutate(Arm = factor(Arm, levels =c("Intervention", "Ctrl")))%>%
+  gather(index, alpha_value, "observed":"diversity_shannon")%>%
+  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
+  ggplot(aes(x = Arm,
+             y = alpha_value)) +
+  facet_grid(scale="free", space="free_x", rows=vars(index)) +
+  geom_boxplot(aes(group=Time), outlier.shape = NA) +
+  geom_point(aes(group=Time, colour=Time), position= position_jitterdodge(0.3), alpha=0.75,   size = 3)+
+  ylab("Diversity") + 
+  xlab(NULL) +
+  theme(panel.background = element_rect(fill="white"),
+        panel.border=element_rect(fill=NA))+
+  ggtitle(title)->alpha_plot
+
+show(alpha)
+
+ggsave(filename = "alpha_c.jpeg",
+       path ="C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
+       width = 17,
+       height = 17,
+       units = c("cm"))
+```
+
+```{r}
+
+alphas%>%
+  gather(index, alpha_value, "observed":"diversity_shannon")%>%
+  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
+  group_by(index, condition)%>%
+  shapiro_test(alpha_value)
+
+#shannon is not normal for 3C and BHI like => should be wilcox test but conditions are anyway not significant 
+alphas%>%
+   mutate(condition = factor(condition, levels =c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O"
+                                                 ,"BHI like", "GMM like"
+                                                 )))%>%
+  gather(index, alpha_value, "observed":"diversity_shannon")%>%
+  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
+  group_by(index)%>%
+  t_test(alpha_value ~ condition)%>%
+  add_xy_position(x= "condition", fun="max") %>% 
+  add_significance()%>%
+  mutate(y.position =ifelse(index=="observed" & group1=="feces" & group2=="Glc", 160, y.position))%>%
+  mutate(y.position =ifelse(index=="observed" & group1=="feces" & group2=="3C", 140, y.position))%>%
+  mutate(y.position =ifelse(index=="diversity_shannon" & group1=="feces" & group2=="Glc", 4.5, y.position))-> stat.test
+
+
+title<-paste("Alpha diversity")
+names<-list("observed"= "Observed", "diversity_shannon"="Shannon")
+
+alphas%>%
+  mutate(condition = factor(condition, levels =c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O"
+                                                 ,"BHI like", "GMM like"
+                                                 )))%>%
+  gather(index, alpha_value, "observed":"diversity_shannon")%>%
+  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
+  ggplot(aes(x = condition,
+             y = alpha_value)) +
+  facet_grid(scale="free", space="free_x", rows=vars(index), labeller=facet_labeller) +
+  geom_boxplot(aes(group=condition), outlier.shape = NA) +
+  geom_point(aes(colour =donor_name, group=condition), position= position_jitterdodge(0.3), alpha=0.75,   size = 3)+
+  ylab("Diversity") + 
+  xlab(NULL) +
+  geom_point(data = data.frame(alpha_value=5, condition="feces", index ="diversity_shannon"), colour="white")+
+  geom_point(data = data.frame(alpha_value=175, condition="feces", index ="observed"), colour="white")+
+  theme(axis.text.y= element_text(size = 20), 
+            axis.title.y = element_text(size=20), 
+            axis.title.x = element_text(size=20),
+            axis.text.x = element_text(size=20, angle=90, vjust=0.2, hjust=1),
+            legend.text = element_text(size = 20),
+            legend.title = element_text(size= 20),
+            plot.title = element_text(size=20),
+          strip.text.y = element_text(size=20), 
+        panel.background = element_rect(fill="white"),
+        panel.border=element_rect(fill=NA), axis.ticks.x = element_blank())+
+  ggtitle(title)+
+  scale_x_discrete(labels = c('feces' = 'Feces', 
+                              '7C' = '6C+Muc', 
+                              '3C+Muc' = '3C+Muc', 
+                              "Nut"="Nut", 
+                              "SS"="SS",
+                              "7C-Muc"="6C", 
+                              "3C"="3C", 
+                              "H2O"="C-depleted", 
+                              "Glc"="Glucose", 
+                              "BHI like" = "BHI-like", 
+                              "GMM like"= "GMM-like"))+
+  stat_pvalue_manual(stat.test, hide.ns = T, label = "p.adj.signif", size=5, label.size = 8)+
+  labs(colour="Donor")->alpha
+
+show(alpha)
+
+ggsave(filename = "alpha_c.jpeg",
+       path ="C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
+       width = 17,
+       height = 17,
+       units = c("cm"))
+```
+
+```{r}
+alphas%>%
+  subset(!condition %in% "feces")->feces
+median(feces$diversity_shannon)
+aggregate(alphas$observed, by=list(c(alphas$condition)), FUN=median)
+```
+
+## Compositional bar plots for each donor
+```{r}
+#fix tax table
+noNA = !is.na(tax_table(phyloseq_rare)[,"Genus"]) & !is.na(tax_table(phyloseq_rare)[,"Species"])
+tax_table(phyloseq_rare)[noNA][,"Species"] = paste(tax_table(phyloseq_rare)[noNA][,"Genus"], tax_table(phyloseq_rare)[noNA][,"Species"])
+phyloseq_rare%>%
+  tax_fix()->phyloseq_rare
+```
+
+```{r}
+meta<-sample.data.frame(phyloseq_rare)
+#define order for bar plot
+meta%>%
+  mutate(condition = factor(condition, levels=c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O" 
+                                                 ,"BHI like", "GMM like" 
+                                                )))->sample_data(phyloseq_rare)
+```
+
+```{r}
+setwd(mydir)
+myPal <- tax_palette(
+  data = phyloseq_rare, rank = "Family", n = 10, pal = "greenArmytage",
+  add = c(Other = "white")
+)
+
+myPal["Lachnospiraceae"] <- "lightblue"
+myPal["Bacteroidaceae"] <- "steelblue"
+myPal["Enterobacteriaceae"] <- "yellowgreen"
+myPal["Prevotellaceae"] <- "forestgreen"
+myPal["Ruminococcaceae"] <- "lightpink1"
+myPal["Bifidobacteriaceae"] <- "red3"
+myPal["Oscillospiraceae"] <- "sienna1"
+myPal["Streptococcaceae"] <- "orange"
+myPal["Sutterellaceae"] <- "khaki1"
+myPal["Erysipelatoclostridiaceae"] <- "orchid4"
+myPal["Other"] <- "lightgrey"
+tax_palette_plot(myPal)
+
+phyloseq_rare%>%
+  ps_arrange(condition)%>%
+  microViz::comp_barplot(
+    tax_level = "Family",
+    label = "condition",
+    n_taxa = 10,
+    bar_width = 0.9,
+    sample_order = "default",
+    tax_transform_for_plot = "compositional",
+    palette= myPal) +
+    ylab("Proportion") + xlab("")-> p_hist
+
+p_hist + facet_grid(cols=vars(donor_name), scales = "free", space = "free_x", drop = TRUE)+
+  theme(text= element_text(size=20),
+        axis.text.y = element_text(size=20),
+        axis.text.x = element_text(size=20, angle=90, vjust=0.2, hjust=1, margin=margin(-8,0,0,0)),
+        axis.ticks.x = element_blank(),
+        legend.text = element_text(size=20, vjust=1, hjust=0),
+        panel.spacing = unit(0.05, "cm"),
+        strip.text = element_text(size=20), plot.title = element_text(size=20)) + 
+  scale_y_continuous(breaks=c(0.25, 0.5, 0.75))+ 
+  ggtitle("Taxonomic distribution and ASV representation in cultures and feces")-> p_hist
+
+show(p_hist)
+
+ggsave(filename = "Barplots_family_noleg.png",
+       path = mydir,
+       width = 40,
+       height = 15,
+       units = c("cm"))
+```
+## Distance plots of pairwise comparisons
+```{r}
+phyloseq_rare %>%
+  phyloseq::distance(method = "bray") -> bc
+
+phyloseq_rare %>%
+  ordinate(method = "PCoA",
+           distance = bc) -> ord
+```
+
+```{r}
+setwd(mydir)
+phyloseq_rare %>% 
+  phyloseq_distance_boxplot(p = ., # phyloseq object
+                            dist = bc, # distance matrix
+                            d = "condition") -> out # column in metadata for comparaisons
+#get the distances
+setNames(as.data.frame(out$matrix),c("sample_name", "sample_name_comp", "value", "condition_comp", "comparison")) -> distances
+
+left_join(left_join(distances%>%
+  subset(comparison %in% c("feces")), meta),
+                    setNames(aggregate(distances$value, by=list(distances$condition_comp), FUN=median), c("condition_comp", "mean_value")))%>%
+  mutate(sample_type = factor(sample_type, levels= c("feces", "culture")))->joined_2
+
+###get fecal IDs
+meta[, c(1,3)]%>%
+  subset(sample_name %in% c("M-81","M-82", "M-83", "M-84", "M-85", "M-86", "M-87", "M-88"))%>%
+  setNames(c("sample_name_comp", "donor_name_comp"))->donor_comp
+
+joined_3<-left_join(joined_2, donor_comp)
+
+#filter out for comparisons between feces and respective donor microbiota
+for (i in 1:nrow(joined_3)){
+  if (joined_3[i,c("donor_name")] == joined_3[i,c("donor_name_comp")]){joined_3[i,c("match")]= "true"}
+}
+
+joined_3%>%
+  subset(match %in% "true")%>%
+  mutate(condition_comp = factor(condition_comp, 
+                                 levels=c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O"
+                                          , "BHI like", "GMM like"
+                                          )))-> beta_dist_c_sources
+conidition_cond<-unique(beta_dist_c_sources$condition)
+
+for (i in 1:8) {
+beta_dist_c_sources%>%
+  subset(condition %in% conidition_cond[i])->sub  
+ print(shapiro_test(sub$value))
+}
+
+
+  
+
+beta_dist_c_sources%>%
+  t_test(data =., value ~ condition)%>%
+  add_significance()%>%
+  add_xy_position() %>%
+
+###reordering of the significance labels
+     mutate(xmin = ifelse(group1 == "7C" & group2 =="H2O", 1 ,xmin))%>%
+  mutate(xmax = ifelse(group1 == "7C" & group2 =="H2O",6, xmax))%>%
+  mutate(y.position = ifelse(group1 == "7C" & group2 =="H2O",1, y.position))%>%
+  
+  mutate(xmin = ifelse(group1 == "3C+Muc" & group2 =="H2O", 2 ,xmin))%>%
+  mutate(xmax = ifelse(group1 == "3C+Muc" & group2 =="H2O",6, xmax))%>%
+  mutate(y.position = ifelse(group1 == "3C+Muc" & group2 =="H2O",1.05, y.position))%>%
+  
+    mutate(xmin = ifelse(group1 == "7C-Muc" & group2 =="H2O", 3 ,xmin))%>%
+  mutate(xmax = ifelse(group1 == "7C-Muc" & group2 =="H2O",6, xmax))%>%
+  mutate(y.position = ifelse(group1 == "7C-Muc" & group2 =="H2O", 1.1, y.position))%>%
+  
+   mutate(xmin = ifelse(group1 == "3C" & group2 =="H2O" , 4 ,xmin))%>%
+  mutate(xmax = ifelse(group1 == "3C" & group2 =="H2O",6, xmax))%>%
+  mutate(y.position = ifelse(group1 == "3C" & group2 =="H2O",1.15, y.position))%>% 
+  
+    mutate(xmin = ifelse(group1 == "BHI like" & group2 =="H2O", 6 ,xmin))%>%
+  mutate(xmax = ifelse(group1 == "BHI like" & group2 =="H2O",7, xmax))%>%
+  mutate(y.position = ifelse(group1 == "BHI like" & group2 =="H2O", 1.2, y.position)) %>%
+  
+  mutate(xmin = ifelse(group1 == "GMM like" & group2 =="H2O", 6 ,xmin))%>%
+  mutate(xmax = ifelse(group1 == "GMM like" & group2 =="H2O",8, xmax))%>%
+  mutate(y.position = ifelse(group1 == "GMM like" & group2 =="H2O", 1.25, y.position))->stat.test
+
+beta_dist_c_sources%>%
+  ggplot(aes(y=value, x=condition_comp))+
+  geom_boxplot(aes(group=condition_comp),  outlier.shape =  NA)+
+  geom_jitter(aes(group=condition_comp, colour=donor_name), width= 0.2, alpha=0.75, size = 3)+
+  facet_grid(cols=vars(sample_type), space="free_x", scale="free_x")+
+  theme(text=element_text(size=20),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text( angle=90, vjust=0.2, hjust=1, size=20),
+        strip.text.x = element_blank(),
+        axis.ticks.x = element_blank(), 
+        panel.background = element_rect(fill="white"),
+        panel.border=element_rect(fill=NA),
+        axis.title.y = element_text(size=20), 
+        axis.text = element_text(size=20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size= 20),
+        plot.title = element_text(size=20),
+        strip.text.y = element_text(size=20),
+        )+
+  scale_x_discrete(labels = c('feces' = 'Feces', '7C' = '6C+Muc', '3C+Muc' = '3C+Muc', "Nut"="Nut", "SS"="SS", "7C-Muc"="6C", "3C"="3C", "H2O"="C-depleted", "Glc"="Glucose", "BHI like" = "BHI-like", "GMM like"= "GMM-like"))+
+  ggtitle("Distances between feces and cultures")+
+  ylab("Distance")+
+  stat_pvalue_manual(stat.test, hide.ns = T, label = "p.adj.signif", size=5, label.size = 8)+
+  labs(colour="Donor")->p
+
+  show(p)
+  
+  ggsave(filename = "Beta_diversity_dist.png",
+       path = "C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
+       width = 17,
+       height = 17,
+       units = c("cm"))
+```
+
+```{r}
+aggregate(beta_dist_c_sources$value, by=list(beta_dist_c_sources$condition), FUN=median)%>%
+  mutate(x = round(x, digits=2))
+```
+
+## Analysis shared taxa
+## number of ASV culture vs. feces
+```{r}
+donor_count<-c("JHB", "KPJ", "WPL","SUT" ,"BFW" ,"TLM" ,"GCB", "AXZ")
+maintain<-as.data.frame(matrix(5,0,0))
+
+for (j in 1:length(donor_count)){
+phyloseq_rare %>% 
+  subset_samples(donor_name %in% c(donor_count[j]))%>%
+    tax_glom(taxrank = "Genus")%>%
+    transform_sample_counts(function(x) {x/sum(x)}) %>%
+    filter_taxa(., function(x){mean(x) > 0}, TRUE)%>%
+    psmelt()%>%
+    mutate(condition = as.character(condition))%>%
+    mutate(sample_type = as.character(sample_type))->df_abund
+  
+
+
+condition_count <- c("3C+Muc" ,  "7C-Muc" ,  "Glc"  ,    "3C"   ,    "feces"   , "H2O"    ,  "7C"   
+                       , "GMM like" ,"BHI like"
+                     )
+
+abundance = 0.00
+n=nrow(maintain)+1
+
+for(i in 1:length(condition_count)){
+
+  
+df_abund%>%
+   subset(sample_type %in% c("culture")) %>%
+  subset(condition %in% c(condition_count[i]))%>%
+  subset(Abundance > 0.00)-> culture
+
+df_abund%>%
+  subset(sample_type %in% c("feces"))%>%
+  subset(Abundance > 0.00)-> feces
+
+rbind(culture, feces)-> all
+
+otu_all<-setNames(as.data.frame(unique(all$Genus)), c("Genus"))
+
+
+
+
+diff_feces<-setNames(as.data.frame(setdiff(otu_all$Genus, culture$Genus)), c("Genus"))
+diff_culture<-setNames(as.data.frame(setdiff(otu_all$Genus, feces$Genus)), c("Genus"))
+
+intersec<-setNames(as.data.frame(intersect(culture$Genus, feces$Genus)), c("Genus"))
+
+maintain[n,"donor_name"] = donor_count[j]
+maintain[n,"condition"] = condition_count[i]
+
+maintain[n,c("Shared")]<-nrow(intersec)/(nrow(diff_culture)+nrow(diff_feces)+nrow(intersec)) 
+maintain[n,c("Cultures")]<-nrow(diff_culture)/(nrow(diff_culture)+nrow(diff_feces)+nrow(intersec)) 
+maintain[n,c("Feces")]<-nrow(diff_feces)/(nrow(diff_culture)+nrow(diff_feces)+nrow(intersec)) 
+
+n=n+1
+  }}
+
+```
+
+```{r}
+maintain%>%
+  subset(condition %in% "7C")->C
+
+mean(C$Shared)
+
+left_join(setNames(aggregate(maintain$Shared, by = list(c(maintain$condition)), FUN="mean"), c("condition", "mean"))%>%
+  mutate(mean = round(mean, digits=2)), 
+  setNames(aggregate(maintain$Shared, by = list(c(maintain$condition)), FUN="sd"), c("condition", "sd"))%>%
+  mutate(sd= round(sd, digits=2)) )
+```
+
+```{r}
+setwd(mydir)
+
+maintain%>%
+  mutate(condition = factor(condition, levels = c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O"
+                                                   , "BHI like", "GMM like"
+                                                  )))%>%
+  mutate(Shared = Shared*100)%>%
+  mutate(Cultures = Cultures*100)%>%
+  mutate(Feces = Feces*100)%>%
+  gather(sample, percent, c("Shared":"Feces"))%>%
+  ggplot(aes(x=condition, y=percent, fill=sample))+
+  geom_bar(stat = "identity", width=0.9143, colour="black", size=0.1 )+
+  facet_grid(cols=vars(donor_name), scales="free_x", space = "free_x")+
+  xlab("")+
+  ylab("ASV representation[%]")+
+  scale_x_discrete(labels = c('feces' = 'Feces', '7C' = '6C+Muc', '3C+Muc' = '3C+Muc', "Nut"="Nut", "SS"="SS", "7C-Muc"="6C", "3C"="3C", "H2O"="C-depleted", "Glc"="Glucose", 
+                               "BHI like" = "BHI-like", "GMM like"= "GMM-like"
+                              ))+
+  scale_y_continuous(breaks=c(25, 50, 75))+
+  scale_fill_manual(values=c("grey","burlywood4", "cyan4"))+
+  theme(text=element_text(size=20),
+        axis.text.x = element_text(size=17, angle=90, vjust=0.3, hjust=1),
+        axis.text.y = element_text(size=20),
+        axis.title.y = element_text(size=20),
+        axis.ticks.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.title.x = element_blank(), 
+        panel.spacing = unit(0.05, "cm"),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank())+
+  labs(fill= "Sample")->p
+
+
+
+    ggsave(filename = "maintained_asv.png",
+       path = mydir,
+       width = 40,
+       height = 17,
+       units = c("cm"))
+   
+p+labs(fill= "ASV representation")+ ggtitle("")+theme(legend.position = "none")
+
+
+
+    ggsave(filename = "maintained_asv_side_plot_noleg..jpeg",
+       path = "C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
+       width = 39.3,
+       height = 10,
+       units = c("cm"))
+
+
+```
+# Combine taxa bar plots & shared ASVs plot
+```{r}
+plot_grid(p_hist           + theme(axis.text.x = element_blank(),
+                        axis.ticks.x  = element_blank())
+          , 
+          p          + theme(strip.text = element_blank())
+         ,
+  align= "v", rel_heights = c(0.6,0.4), rel_widths=c(1,1), nrow=2, axis = 'tb')
+
+ ggsave(filename = "C_sources_overall.jpeg",
+       path = "C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
+       width = 50,
+       height = 24,
+       units = c("cm"))
+
+```
+
+
+
+
