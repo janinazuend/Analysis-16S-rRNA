@@ -11,18 +11,16 @@ mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs'
 
 # devtools::install_github("tidyverse/tidyverse") 
 
-library(phyloseq)
-library(tidyverse)
-library(openxlsx)
-library(microViz)
-library(rstatix)
-library(ggpubr)
-library(plyr)
-library(ggpmisc)
-library(cowplot)
-library(vegan)
-
-
+# library(phyloseq)
+# library(tidyverse)
+# library(openxlsx)
+# library(microViz)
+# library(rstatix)
+# library(ggpubr)
+# library(plyr)
+# library(ggpmisc)
+# library(cowplot)
+# library(vegan)
 ```
 
 ```{r}
@@ -77,7 +75,7 @@ ps %>%
                     sample.size = 1095326
                     ) -> ps_rare
 ```
-##  2. Alpha diversity
+###  2. Alpha diversity
 ```{r}
 #alpha diversity
 ps_rare%>%
@@ -85,182 +83,106 @@ ps_rare%>%
 ```
 
 ```{r}
-alphas%>%
-  mutate(Arm = factor(Arm, levels =c("Intervention", "Ctrl")))%>%
-  gather(index, alpha_value, "observed":"diversity_shannon")%>%
-  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
-  ggplot(aes(x = Arm,
-             y = alpha_value)) +
-  facet_grid(scale="free", space="free_x", rows=vars(index)) +
-  geom_boxplot(aes(group=Time), outlier.shape = NA) +
-  geom_point(aes(group=Time, colour=Time), position= position_jitterdodge(0.3), alpha=0.75,   size = 3)+
+alphas %>%
+  gather(index, alpha_value, "observed":"diversity_shannon") %>%
+  mutate(
+    Type = factor(Type, levels = c("Fecal", "Saliva", "Buccal")),
+    Arm = factor(Arm, levels = c("Intervention", "Ctrl")),
+    index = factor(index, levels = c("observed", "diversity_shannon"))
+  ) %>%
+  
+  ggplot(aes(x = Arm, y = alpha_value, fill = Time)) +
+  geom_boxplot(position = position_dodge(width = 0.75), outlier.shape = NA) +
+  geom_point(aes(color = Time),
+             position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+             alpha = 0.75, size = 3) +
   ylab("Diversity") + 
   xlab(NULL) +
-  theme(panel.background = element_rect(fill="white"),
-        panel.border=element_rect(fill=NA))+
-  ggtitle(title)->alpha_plot
+  facet_grid(rows = vars(index), cols = vars(Type), scales = "free", space = "free_x") +
+  theme(text = element_text(size = 20),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(fill = NA)
+  )+
+scale_fill_manual(values=c("white", "white"))+
+scale_color_manual(values=c("seagreen3", "lightpink"))
 
-show(alpha)
-
-ggsave(filename = "alpha_c.jpeg",
-       path ="C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
-       width = 17,
+ggsave(filename = "alpha_run1.jpeg",
+       path ="C:/Users/zuendj/Desktop/03_data R/fibreGum/output",
+       width = 20,
        height = 17,
        units = c("cm"))
 ```
 
+### 3. Compositional bar plots using Microviz
 ```{r}
+ps_rare -> ps_rare_fix
+tax_mat <- as.matrix(tax_table(ps_rare_fix))
+tax_mat <- apply(tax_mat, 2, as.character)  # Sicherstellen, dass alles Zeichen ist
+rownames(tax_mat) <- taxa_names(ps_rare_fix)
 
-alphas%>%
-  gather(index, alpha_value, "observed":"diversity_shannon")%>%
-  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
-  group_by(index, condition)%>%
-  shapiro_test(alpha_value)
-
-#shannon is not normal for 3C and BHI like => should be wilcox test but conditions are anyway not significant 
-alphas%>%
-   mutate(condition = factor(condition, levels =c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O"
-                                                 ,"BHI like", "GMM like"
-                                                 )))%>%
-  gather(index, alpha_value, "observed":"diversity_shannon")%>%
-  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
-  group_by(index)%>%
-  t_test(alpha_value ~ condition)%>%
-  add_xy_position(x= "condition", fun="max") %>% 
-  add_significance()%>%
-  mutate(y.position =ifelse(index=="observed" & group1=="feces" & group2=="Glc", 160, y.position))%>%
-  mutate(y.position =ifelse(index=="observed" & group1=="feces" & group2=="3C", 140, y.position))%>%
-  mutate(y.position =ifelse(index=="diversity_shannon" & group1=="feces" & group2=="Glc", 4.5, y.position))-> stat.test
+for (i in 1:nrow(tax_mat)) {
+  for (j in 2:ncol(tax_mat)) {  # von 2 bis 7 (bzw. Anzahl der Spalten)
+    if (is.na(tax_mat[i, j]) || tax_mat[i, j] == "") {  # NA oder leer ersetzen
+      higher_ranks <- tax_mat[i, 1:(j - 1)]
+      fallback <- tail(na.omit(higher_ranks[higher_ranks != ""]), n = 1)
+      if (length(fallback) > 0) {
+        tax_mat[i, j] <- fallback
+      }
+    }
+  }
+}
 
 
-title<-paste("Alpha diversity")
-names<-list("observed"= "Observed", "diversity_shannon"="Shannon")
 
-alphas%>%
-  mutate(condition = factor(condition, levels =c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O"
-                                                 ,"BHI like", "GMM like"
-                                                 )))%>%
-  gather(index, alpha_value, "observed":"diversity_shannon")%>%
-  mutate(index = factor(index, levels= c("observed", "diversity_shannon")))%>%
-  ggplot(aes(x = condition,
-             y = alpha_value)) +
-  facet_grid(scale="free", space="free_x", rows=vars(index), labeller=facet_labeller) +
-  geom_boxplot(aes(group=condition), outlier.shape = NA) +
-  geom_point(aes(colour =donor_name, group=condition), position= position_jitterdodge(0.3), alpha=0.75,   size = 3)+
-  ylab("Diversity") + 
-  xlab(NULL) +
-  geom_point(data = data.frame(alpha_value=5, condition="feces", index ="diversity_shannon"), colour="white")+
-  geom_point(data = data.frame(alpha_value=175, condition="feces", index ="observed"), colour="white")+
-  theme(axis.text.y= element_text(size = 20), 
-            axis.title.y = element_text(size=20), 
-            axis.title.x = element_text(size=20),
-            axis.text.x = element_text(size=20, angle=90, vjust=0.2, hjust=1),
-            legend.text = element_text(size = 20),
-            legend.title = element_text(size= 20),
-            plot.title = element_text(size=20),
-          strip.text.y = element_text(size=20), 
-        panel.background = element_rect(fill="white"),
-        panel.border=element_rect(fill=NA), axis.ticks.x = element_blank())+
-  ggtitle(title)+
-  scale_x_discrete(labels = c('feces' = 'Feces', 
-                              '7C' = '6C+Muc', 
-                              '3C+Muc' = '3C+Muc', 
-                              "Nut"="Nut", 
-                              "SS"="SS",
-                              "7C-Muc"="6C", 
-                              "3C"="3C", 
-                              "H2O"="C-depleted", 
-                              "Glc"="Glucose", 
-                              "BHI like" = "BHI-like", 
-                              "GMM like"= "GMM-like"))+
-  stat_pvalue_manual(stat.test, hide.ns = T, label = "p.adj.signif", size=5, label.size = 8)+
-  labs(colour="Donor")->alpha
+# Assign the modified matrix back to the phyloseq object
+tax_table(ps_rare_fix) <- tax_table(tax_mat)
 
-show(alpha)
-
-ggsave(filename = "alpha_c.jpeg",
-       path ="C:/Users/zuendj/Desktop/03_data R/wp1/output/final",
-       width = 17,
-       height = 17,
-       units = c("cm"))
+ps_rare_fix%>%
+  tax_fix()->ps_fix
 ```
 
 ```{r}
-alphas%>%
-  subset(!condition %in% "feces")->feces
-median(feces$diversity_shannon)
-aggregate(alphas$observed, by=list(c(alphas$condition)), FUN=median)
-```
+meta<-sample.data.frame(ps_fix)
 
-## Compositional bar plots for each donor
-```{r}
-#fix tax table
-noNA = !is.na(tax_table(phyloseq_rare)[,"Genus"]) & !is.na(tax_table(phyloseq_rare)[,"Species"])
-tax_table(phyloseq_rare)[noNA][,"Species"] = paste(tax_table(phyloseq_rare)[noNA][,"Genus"], tax_table(phyloseq_rare)[noNA][,"Species"])
-phyloseq_rare%>%
-  tax_fix()->phyloseq_rare
+
+
+sample_data(ps_fix)<-meta%>%
+  mutate(Time = factor(Time, levels = c("Base", "End")))
 ```
 
 ```{r}
-meta<-sample.data.frame(phyloseq_rare)
-#define order for bar plot
-meta%>%
-  mutate(condition = factor(condition, levels=c("feces", "7C",   "3C+Muc", "7C-Muc" , "3C" ,   "Glc"  ,"H2O" 
-                                                 ,"BHI like", "GMM like" 
-                                                )))->sample_data(phyloseq_rare)
-```
-
-```{r}
-setwd(mydir)
-myPal <- tax_palette(
-  data = phyloseq_rare, rank = "Family", n = 10, pal = "greenArmytage",
-  add = c(Other = "white")
-)
-
-myPal["Lachnospiraceae"] <- "lightblue"
-myPal["Bacteroidaceae"] <- "steelblue"
-myPal["Enterobacteriaceae"] <- "yellowgreen"
-myPal["Prevotellaceae"] <- "forestgreen"
-myPal["Ruminococcaceae"] <- "lightpink1"
-myPal["Bifidobacteriaceae"] <- "red3"
-myPal["Oscillospiraceae"] <- "sienna1"
-myPal["Streptococcaceae"] <- "orange"
-myPal["Sutterellaceae"] <- "khaki1"
-myPal["Erysipelatoclostridiaceae"] <- "orchid4"
-myPal["Other"] <- "lightgrey"
-tax_palette_plot(myPal)
-
-phyloseq_rare%>%
-  ps_arrange(condition)%>%
+ps_fix%>%
+  ps_arrange(Time)%>%
   microViz::comp_barplot(
     tax_level = "Family",
-    label = "condition",
+    label = "Time",
     n_taxa = 10,
     bar_width = 0.9,
     sample_order = "default",
-    tax_transform_for_plot = "compositional",
-    palette= myPal) +
+    tax_transform_for_plot = "compositional"
+    # palette= myPal
+    ) +
     ylab("Proportion") + xlab("")-> p_hist
 
-p_hist + facet_grid(cols=vars(donor_name), scales = "free", space = "free_x", drop = TRUE)+
-  theme(text= element_text(size=20),
-        axis.text.y = element_text(size=20),
-        axis.text.x = element_text(size=20, angle=90, vjust=0.2, hjust=1, margin=margin(-8,0,0,0)),
+p_hist + facet_grid(rows=vars(Type, UPN), scales = "free", space = "free_x", drop = TRUE)+
+  theme(text= element_text(size=15),
+        axis.text.y=element_text(angle=0),
+        axis.text.x = element_text(vjust=0.2, hjust=1, margin=margin(-8,0,0,0)),
         axis.ticks.x = element_blank(),
-        legend.text = element_text(size=20, vjust=1, hjust=0),
+        legend.text = element_text(vjust=1, hjust=0),
         panel.spacing = unit(0.05, "cm"),
-        strip.text = element_text(size=20), plot.title = element_text(size=20)) + 
-  scale_y_continuous(breaks=c(0.25, 0.5, 0.75))+ 
-  ggtitle("Taxonomic distribution and ASV representation in cultures and feces")-> p_hist
+        strip.text.y = element_text(size=15, angle=0)) + 
+  scale_y_continuous(breaks=c(0.25, 0.5, 0.75))+
+  coord_flip()
 
-show(p_hist)
-
-ggsave(filename = "Barplots_family_noleg.png",
-       path = mydir,
-       width = 40,
-       height = 15,
+ggsave(filename = "Barplots_family_Fibregum_Run_1.png",
+       path = "C:/Users/zuendj/Desktop/03_data R/fibreGum/output",
+       width = 20,
+       height = 35,
        units = c("cm"))
 ```
+
+### Stop here
 ## Distance plots of pairwise comparisons
 ```{r}
 phyloseq_rare %>%
