@@ -1,0 +1,65 @@
+---
+title: "Trim-lab_ Abundance table to phyloseq"
+---
+This R Markdown contains a starting collection of basic microbiome analysis using pyhloseq (https://github.com/joey711/phyloseq). A tutorial can be accessed here: https://joey711.github.io/phyloseq/import-data.html
+
+```{r setup, include=FALSE}
+mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs'
+.libPaths(mylib)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# devtools::install_github("tidyverse/tidyverse") 
+# library(phyloseq)
+# library(tidyverse)
+# library(openxlsx)
+# library(microViz)
+# library(rstatix)
+# library(ggpubr)
+# library(plyr)
+# library(ggpmisc)
+# library(cowplot)
+```
+
+```{r}
+abundances <- read.table("C:/Users/zuendj/Desktop/03_data R/fibreGum/Raw_abundances_fibregum_SequencingRun1.csv", sep = ";", header = TRUE)
+# 
+# %>%
+#   rowid_to_column("ASV")
+```
+
+##1. OTU table
+Rows: Taxa (e.g. OTUs or ASVs), Columns: Sample, Cell values: Read counts
+
+```{r}
+otu_table<-otu_table(as.matrix(abundances[,-c(1,2)]), taxa_are_rows = TRUE)
+```
+
+##2. Tax table
+Rows: Taxa (same order as in OTU table), Columns: Taxonomic levels (e.g., Kingdom, Phylum, Class, Order, Family, Genus, Species)
+
+```{r}
+tax<-abundances[,c(1,2)]%>%
+  separate(Taxonomy, into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"), sep = ";\\s*", remove = T)
+  
+rownames(tax)<-rownames(otu_table)
+
+tax_table <- tax_table(as.matrix(tax))
+```
+
+##3. Sample metadata
+Rows: Samples (must match sample names in OTU table), Columns: Metadata variables (e.g., group, treatment, BMI, timepoint)
+
+```{r}
+meta_df<-data.frame(SampleID = colnames(abundances[,-c(1,2)]))%>%
+  separate(SampleID, into = c("UPN", "Arm", "Time", "Type"), sep = "_", remove = F)%>%
+  column_to_rownames("SampleID")
+
+meta <- sample_data(meta_df)
+```
+
+```{r}
+ps <- phyloseq(otu_table, tax_table, meta)
+saveRDS(ps, file = "C:/Users/zuendj/Desktop/03_data R/fibreGum/phyloseq_FibreGum_Run1.rds")
+```
+
