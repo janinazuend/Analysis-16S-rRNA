@@ -44,7 +44,7 @@ tax<-abundances[,c(1,2)]%>%
   
 rownames(tax)<-rownames(otu_table)
 
-tax_table <- tax_table(as.matrix(tax))
+tax_table <- tax_table(as.matrix(tax[, c(-1)]))
 ```
 
 ##3. Sample metadata
