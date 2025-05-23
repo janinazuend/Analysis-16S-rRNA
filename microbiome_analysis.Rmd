@@ -26,12 +26,12 @@ mylib = 'C:\\Users\\zuendj\\Documents\\R4Libs'
 ```{r}
 #download the functions and store them locally on your computer=> from fconstancias: https://zenodo.org/records/6473394 
 #load them into R => replace directory with the directory on your computer
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
-source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_normalisation.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_alpha.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_beta.R") 
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_heatmap.R")
+# source("C:/Users/zuendj/Desktop/03_data R/divcom_functions/R/phyloseq_taxa_tests.R")
 
 #function for getting metadata file
 sample.data.frame <- function(ps) {
@@ -64,6 +64,7 @@ if(taxa_are_rows(ps)) {
 library_sizes <- setNames(as.data.frame(rowSums(otu_mat)), c("Libsize"))%>%
   arrange(Libsize) ##order
 ```
+
 ```{r}
 #plot the read depth
 vegan::rarecurve(otu_mat, step=10000, cex=0.5)
@@ -72,7 +73,7 @@ vegan::rarecurve(otu_mat, step=10000, cex=0.5)
 ```{r}
 ps %>%
   rarefy_even_depth(rngseed = 123,
-                    sample.size = 1095326
+                    sample.size = 547663
                     ) -> ps_rare
 ```
 ###  2. Alpha diversity
@@ -83,6 +84,7 @@ ps_rare%>%
 ```
 
 ```{r}
+
 alphas %>%
   gather(index, alpha_value, "observed":"diversity_shannon") %>%
   mutate(
@@ -152,11 +154,12 @@ sample_data(ps_fix)<-meta%>%
 
 ```{r}
 ps_fix%>%
+  # subset_samples(Type %in% "Fecal")%>%
   ps_arrange(Time)%>%
   microViz::comp_barplot(
-    tax_level = "Family",
+    tax_level = "Genus",
     label = "Time",
-    n_taxa = 10,
+    n_taxa = 20,
     bar_width = 0.9,
     sample_order = "default",
     tax_transform_for_plot = "compositional"
@@ -164,7 +167,8 @@ ps_fix%>%
     ) +
     ylab("Proportion") + xlab("")-> p_hist
 
-p_hist + facet_grid(rows=vars(Type, UPN), scales = "free", space = "free_x", drop = TRUE)+
+# p_hist + facet_grid(rows=vars( UPN), scales = "free", space = "free_x", drop = TRUE)+
+  p_hist + facet_grid(rows=vars(Type, UPN), scales = "free", space = "free_x", drop = TRUE)+
   theme(text= element_text(size=15),
         axis.text.y=element_text(angle=0),
         axis.text.x = element_text(vjust=0.2, hjust=1, margin=margin(-8,0,0,0)),

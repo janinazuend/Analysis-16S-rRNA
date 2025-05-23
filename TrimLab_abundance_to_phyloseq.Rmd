@@ -10,22 +10,19 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # devtools::install_github("tidyverse/tidyverse") 
-library(phyloseq)
-library(tidyverse)
-library(openxlsx)
-library(microViz)
-library(rstatix)
-library(ggpubr)
-library(plyr)
-library(ggpmisc)
-library(cowplot)
+# library(phyloseq)
+# library(tidyverse)
+# library(openxlsx)
+# library(microViz)
+# library(rstatix)
+# library(ggpubr)
+# library(plyr)
+# library(ggpmisc)
+# library(cowplot)
 ```
 
 ```{r}
 abundances <- read.table("C:/Users/zuendj/Desktop/03_data R/fibreGum/Raw_abundances_fibregum_SequencingRun1.csv", sep = ";", header = TRUE)
-# 
-# %>%
-#   rowid_to_column("ASV")
 ```
 
 ##1. OTU table
